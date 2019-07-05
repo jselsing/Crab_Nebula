@@ -273,41 +273,28 @@ def main():
 
 
 
-    pl.ylabel(r'$\log \mathrm{F}_\lambda$ [$\mathrm{erg}~\mathrm{s}^{-1}~\mathrm{cm}^{-2}~\mathrm{\AA}^{-1}$]')
+    pl.ylabel(r'$\log (F_\lambda / \mathrm{erg}~\mathrm{s}^{-1}~\mathrm{cm}^{-2}~\mathrm{\AA}^{-1}$)')
     pl.semilogy()
     pl.legend()
 
     # Add frequency axis
     ax = pl.gca()
-    ax2 = ax.twiny()
-    ax2.set_xscale("log")
-
+    ax2 = pl.twiny()
 
     # get axis limits
-    ymin, ymax = ax.get_xlim()
-    # apply function and set transformed values to right axis limits
-    y_mi, y_mx = ((ymin * u.angstrom).to(u.Hz, equivalencies=u.spectral()).value), ((ymax * u.angstrom).to(u.Hz, equivalencies=u.spectral()).value)
-    ax2.set_xlim((y_mi, y_mx))
+    xmin, xmax = ax.get_xlim()
+   ax2.set_xlim((xmin, xmax))
+
+    def co(angs):
+        return(3e18/(10**angs))
+    nu_arr = np.array([15, 14.6, 14.4, 14.3, 14.2, 14.1])
+    ax2.set_xticks(co(nu_arr))
+    ax2.set_xticklabels(nu_arr)
 
 
-    ax2.plot([],[])
 
-    # import matplotlib.ticker as ticker
-    # ax2.set_xticks([15, 14.7, 14.6, 14.3])
-
-    # ax2.xaxis.set_major_formatter(ticker.FuncFormatter(lambda y, _: '{:0.2f}'.format((np.log10(y)))))
-    # ax2.xaxis.set_minor_formatter(ticker.FuncFormatter(lambda y, _: '{:0.2f}'.format((np.log10(y)))))
-
-    # ax2.xaxis.set_minor_formatter(ticker.FuncFormatter(lambda y, _: '{:g}'.format((y))))
-
-    # from matplotlib.ticker import ScalarFormatter
-    # for axis in [ax2.xaxis]:
-    #     axis.set_major_formatter(ScalarFormatter())
-    #     axis.set_minor_formatter(ScalarFormatter())
-    # ax2.set_xticks([15, 14.8, 14.6, 14.4, 14.2, 14])
-
-    ax.set_xlabel(r"Observed wavelength  [$\mathrm{\AA}$]")
-    ax2.set_xlabel(r"Logarithmic observed frequency  [$\mathrm{Hz}$]")
+    ax.set_xlabel(r"$ \lambda_{\mathrm{obs}}/\mathrm{\AA}$")
+    ax2.set_xlabel(r"$\log (\nu/\mathrm{Hz})$")
 
     pl.tight_layout()
     pl.savefig("../figures/combined_spectrum.pdf")

@@ -27,11 +27,11 @@ lib = pyphot.get_library()
 import matplotlib as mpl
 # from matplotlib.ticker import FormatStrFormatter
 params = {
-    'axes.labelsize': 16,
-    'font.size': 16,
-    'legend.fontsize': 16,
-    'xtick.labelsize': 16,
-    'ytick.labelsize': 16,
+    'axes.labelsize': 14,
+    'font.size': 14,
+    'legend.fontsize': 14,
+    'xtick.labelsize': 14,
+    'ytick.labelsize': 14,
     'text.usetex': True
 }
 mpl.rcParams.update(params)
@@ -331,32 +331,21 @@ def main():
 
     # Add frequency axis
     ax = pl.gca()
-    ax2 = ax.twiny()
-    # ax2.plot(np.log10((wl_final * u.angstrom).to(u.Hz, equivalencies=u.spectral()).value), 1 + 0*medfilt(average, 1), linestyle="steps-mid")
-
-    # Add wavlength axis
-    # ax = ax.twiny()
-
-    # ax3.set_xlabel(r"$\lambda$  [$\mathrm{\AA}$]")
+    ax2 = pl.twiny()
 
     # get axis limits
-    ymin, ymax = ax.get_xlim()
-    # apply function and set transformed values to right axis limits
-    ax2.set_xlim((((ymin * u.angstrom).to(u.Hz, equivalencies=u.spectral()).value),((ymax * u.angstrom).to(u.Hz, equivalencies=u.spectral()).value)))
-    # set an invisible artist to twin axes
-    # to prevent falling back to initial values on rescale events
+    xmin, xmax = ax.get_xlim()
+    ax2.set_xlim((xmin, xmax))
 
-    def format_func(value, tick_number):
-        return str(np.around(np.log10(value), 1))
-    ax2.xaxis.set_major_formatter(pl.FuncFormatter(format_func))
-
-    ax2.plot([],[])
-
-    # ax2.semilogx()
+    def co(angs):
+        return(3e18/(10**angs))
+    nu_arr = np.array([15, 14.6, 14.4, 14.3, 14.2, 14.1])
+    ax2.set_xticks(co(nu_arr))
+    ax2.set_xticklabels(nu_arr)
 
 
-    ax.set_xlabel(r"Observed wavelength  [$\mathrm{\AA}$]")
-    ax2.set_xlabel(r"Logarithmic observed frequency  [$\mathrm{Hz}$]")
+    ax.set_xlabel(r"$ \lambda_{\mathrm{obs}}/\mathrm{\AA}$")
+    ax2.set_xlabel(r"$\log (\nu/\mathrm{Hz})$")
 
 
     pl.tight_layout()

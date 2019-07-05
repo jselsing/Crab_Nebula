@@ -67,15 +67,27 @@ def residual(pars, t, data=None, error=None):
 
 
 
-@numba.jit(parallel=True, nopython=True)
-def add_powerlaws(amp, slope, x):
+# @numba.jit(parallel=True, nopython=True)
+# def add_powerlaws(amp, slope, x):
 
-    out_arr = np.zeros((len(amp), len(x)))
-    for ii in numba.prange(len(amp)):
-      out_arr[ii, :] = amp[ii] +  x * slope[ii]
+#     out_arr = np.zeros((len(amp), len(x)))
+#     for ii in numba.prange(len(amp)):
+#       out_arr[ii, :] = amp[ii] +  x * slope[ii]
+
+#     return out_arr
+
+@numba.jit(parallel=True, nopython=False)
+def add_powerlaws(pars, x):
+    amp_pows = pars["amp_pow"]
+    slope_pows = pars["slope_pow"]
+
+
+
+    out_arr = np.zeros((len(amp_pows), len(x)))
+    for ii in numba.prange(len(amp_pows)):
+      out_arr[ii, :] = power_law([amp_pows[ii], slope_pows[ii]], x)
 
     return out_arr
-
 
 def main():
 
@@ -87,6 +99,11 @@ def main():
     # slopes = np.array([0.273295, 0.118976, 0.135172, 0.152629, 0.078017, 0.249216, 0.141438])
     # print(np.mean(slopes), np.sqrt(np.std(slopes)**2 + np.sum(slope_e**2)))
     # print(np.std(slopes))
+
+
+    # O_12 = np.exp(-5816666.690422695  + 6700123.736169487)
+
+    # print(np.exp(5816666.690422695  - 6700123.736169487))
     # exit()
     root_dir = "../data/"
     # OBs = ["OB1_stitched", "OB3_stitched", "OB4_stitched", "OB5_stitched", "OB6_stitched", "OB7_stitched", "OB8_stitched"]
@@ -145,12 +162,12 @@ def main():
 
         p = lmfit.Parameters()
         #           (Name,  Value,  Vary,   Min,  Max,  Expr)
-        p.add_many(('amp_pow',            -40, True, -np.inf, np.inf),
+        p.add_many(('amp_pow',            -27, True, -50, 0),
                    ('slope_pow',       0.27, True, 0, 1))
 
-        mi = lmfit.minimize(residual, p, method='Nelder', args=(logx, logy, logyerr))
-        # print(lmfit.report_fit(mi.params))
-        # exit()
+        mi = lmfit.minimize(residual, p, method='leastsq', args=(logx, logy, logyerr))
+        print(lmfit.report_fit(mi))
+        exit()
 
         # pl.plot(logx, residual(mi.params, logx), lw = 3, zorder=2)
         # pl.ylim((-1e-18, 1e-16))
@@ -175,12 +192,24 @@ def main():
 
         nwalkers = 10
         v = mi.params.valuesdict()
-        res = mini.emcee(nwalkers=nwalkers, burn=500, steps=5000, thin=1, params=mi.params, seed=12345)
+        res = mini.emcee(nwalkers=nwalkers, burn=100, steps=1000, thin=1, params=mi.params, seed=12345)
+        # print(res.report_fit())
+        print(lmfit.report_fit(res))
+
+        # print(mini.sampler.thermodynamic_integration_log_evidence())
+        print(res.chisqr)
+        print(res.redchi)
+        print(res.aik)
+        print(res.bic)
         amp = (res.flatchain["amp_pow"])
         slope = (res.flatchain["slope_pow"])
         # res_out = np.conc
         # exit()
 
+        for i in ["amp_pow", "slope_pow"]:
+            mcmc = np.percentile(res.flatchain[i], [16, 50, 84])
+            q = np.diff(mcmc)
+            print(mcmc[1], q[0], q[1])
 
         # low, mid, high, names = [], [], [], []
         # for kk in res.params.valuesdict().keys():
@@ -210,7 +239,10 @@ def main():
         # l, m ,h = np.percentile(np.sort(amps), [p_lo, 50, p_hi])
         # print(l, m ,h)
         # print(m, m - l, h - m)
-        out_arr = add_powerlaws(amps, slopes, logx_n)
+
+
+        # out_arr = add_powerlaws(amps, slopes, logx_n)
+        out_arr = add_powerlaws(res.flatchain, logx_n)
         # out_arr = out_arr/np.median(out_arr, axis=0)
         ax1.plot(logx_n, np.percentile(out_arr, 50, axis=0), lw = 2, zorder=10, color="firebrick", linestyle="dashed", rasterized=True)
         ax1.fill_between(logx_n, np.percentile(out_arr, 15.9, axis=0), np.percentile(out_arr, 84.2, axis=0), alpha=0.5, zorder=9, color="firebrick", rasterized=True)
@@ -231,39 +263,76 @@ def main():
     ax1.set_ylim(-25.99, -25.01)
     ax2.set_ylim(-0.05, 0.10)
 
-    ax2.set_xlabel(r"$\log \nu$  [$\mathrm{Hz}$]")
-    ax1.set_ylabel(r'$\log \mathrm{F}_\nu$ [$\mathrm{erg}~\mathrm{s}^{-1}~\mathrm{cm}^{-2}\mathrm{Hz}^{-1}$]')
-    ax2.set_ylabel(r'$\delta \log \mathrm{F}_\nu$')
+    ax2.set_xlabel(r"$\log (\nu/\mathrm{Hz})$")
+    # ax1.set_ylabel(r'$\log \mathrm{F}_\nu$ [$\mathrm{erg}~\mathrm{s}^{-1}~\mathrm{cm}^{-2}\mathrm{Hz}^{-1}$]')
+    ax1.set_ylabel(r'$\log (F_\nu / \mathrm{erg}~\mathrm{s}^{-1}~\mathrm{cm}^{-2}~\mathrm{\AA}^{-1}$)')
+
+    ax2.set_ylabel(r'$\delta \log F_\nu$')
 
 
     # Add wavlength axis
+    # ax3 = ax1.twiny()
+
+    # ax3.set_xlabel(r"$\lambda$  [$\mathrm{\AA}$]")
+
+    # # get axis limits
+    # ymin, ymax = ax2.get_xlim()
+    # # apply function and set transformed values to right axis limits
+    # print((10**(ymin) * u.Hz).to(u.angstrom, equivalencies=u.spectral()),(10**(ymax) * u.Hz).to(u.angstrom, equivalencies=u.spectral()))
+    # ax3.set_xlim((((ymin) * u.Hz).to(u.angstrom, equivalencies=u.spectral()).value,((ymax) * u.Hz).to(u.angstrom, equivalencies=u.spectral()).value))
+
+
+    # def format_func(value, tick_number):
+    #     return str(np.around(10**(value), 1))
+    # ax2.xaxis.set_major_formatter(pl.FuncFormatter(format_func))
+
+
+    # # set an invisible artist to twin axes
+    # # to prevent falling back to initial values on rescale events
+    # ax3.plot([],[])
+
+    # Add wavlength axis
+
     ax3 = ax1.twiny()
 
-    ax3.set_xlabel(r"$\lambda$  [$\mathrm{\AA}$]")
-
     # get axis limits
-    ymin, ymax = ax2.get_xlim()
-    # apply function and set transformed values to right axis limits
-    print((10**(ymin) * u.Hz).to(u.angstrom, equivalencies=u.spectral()),(10**(ymax) * u.Hz).to(u.angstrom, equivalencies=u.spectral()))
-    ax3.set_xlim((((ymin) * u.Hz).to(u.angstrom, equivalencies=u.spectral()).value,((ymax) * u.Hz).to(u.angstrom, equivalencies=u.spectral()).value))
+    xmin, xmax = ax1.get_xlim()
+    ax3.set_xlim((xmin, xmax))
 
+    def co(angs):
+        return(np.log10(3e18/(angs)))
 
-    def format_func(value, tick_number):
-        return str(np.around(10**(value), 1))
-    ax2.xaxis.set_major_formatter(pl.FuncFormatter(format_func))
+    nu_arr = np.array([2000, 3000, 5000, 9000, 15000, 25000])
+    ax3.set_xticks(co(nu_arr))
+    ax3.set_xticklabels(nu_arr)
 
-
-    # set an invisible artist to twin axes
-    # to prevent falling back to initial values on rescale events
-    ax3.plot([],[])
-
-
-
+    ax3.set_xlabel(r"$ \lambda_{\mathrm{obs}}/\mathrm{\AA}$")
 
     pl.tight_layout()
     pl.savefig("../figures/power_law.pdf")
 
-    pl.show()
+    # pl.show()
+
+    pl.clf()
+
+
+    params = {
+        'axes.labelsize': 8,
+        'font.size': 8,
+        'legend.fontsize': 8,
+        'xtick.labelsize': 8,
+        'ytick.labelsize': 8,
+        'text.usetex': False
+    }
+    mpl.rcParams.update(params)
+
+
+
+    import corner
+    corner.corner(res.flatchain, labels=["k", r"$\alpha_\nu$"], quantiles=[0.16, 0.5, 0.84], show_titles=True)
+    pl.savefig("../figures/Cornerplot_powerlaw.pdf", clobber=True)
+
+
 
 if __name__ == '__main__':
     main()
